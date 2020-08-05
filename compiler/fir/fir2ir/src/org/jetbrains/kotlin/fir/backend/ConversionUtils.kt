@@ -313,6 +313,30 @@ internal fun FirSimpleFunction.generateOverriddenFunctionSymbols(
     return overriddenSet.toList()
 }
 
+internal fun FirProperty.generateOverriddenAccessorSymbols(
+    containingClass: FirClass<*>,
+    isGetter: Boolean,
+    session: FirSession,
+    scopeSession: ScopeSession,
+    declarationStorage: Fir2IrDeclarationStorage
+): List<IrSimpleFunctionSymbol> {
+    val scope = containingClass.unsubstitutedScope(session, scopeSession)
+    scope.processPropertiesByName(name) {}
+    val overriddenSet = mutableSetOf<IrSimpleFunctionSymbol>()
+    scope.processDirectlyOverriddenProperties(symbol) {
+        if (it.fir.visibility == Visibilities.PRIVATE) {
+            return@processDirectlyOverriddenProperties ProcessorAction.NEXT
+        }
+        val overriddenProperty = declarationStorage.getIrPropertyOrFieldSymbol(it) as IrPropertySymbol
+        val overriddenAccessor = if (isGetter) overriddenProperty.owner.getter?.symbol else overriddenProperty.owner.setter?.symbol
+        if (overriddenAccessor != null) {
+            overriddenSet += overriddenAccessor
+        }
+        ProcessorAction.NEXT
+    }
+    return overriddenSet.toList()
+}
+
 internal fun IrClass.findMatchingOverriddenSymbolsFromSupertypes(
     irBuiltIns: IrBuiltIns,
     target: IrDeclaration,
