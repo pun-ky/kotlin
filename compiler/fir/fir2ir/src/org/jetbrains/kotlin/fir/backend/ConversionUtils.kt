@@ -25,6 +25,8 @@ import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.SyntheticPropertySymbol
 import org.jetbrains.kotlin.fir.resolve.providers.FirProvider
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
+import org.jetbrains.kotlin.fir.scopes.processDirectlyOverriddenFunctions
+import org.jetbrains.kotlin.fir.scopes.processDirectlyOverriddenProperties
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
 import org.jetbrains.kotlin.fir.symbols.AccessorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -38,7 +40,6 @@ import org.jetbrains.kotlin.ir.expressions.IrConstKind
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrErrorTypeImpl
@@ -302,7 +303,7 @@ internal fun FirSimpleFunction.generateOverriddenFunctionSymbols(
         if ((it.fir as FirSimpleFunction).visibility == Visibilities.PRIVATE) {
             return@processDirectlyOverriddenFunctions ProcessorAction.NEXT
         }
-        val overridden = declarationStorage.getIrFunctionSymbol(it)
+        val overridden = declarationStorage.getIrFunctionSymbol(it.unwrapSubstitutionOverrides())
         overriddenSet += overridden as IrSimpleFunctionSymbol
         ProcessorAction.NEXT
     }
@@ -323,7 +324,7 @@ internal fun FirProperty.generateOverriddenAccessorSymbols(
         if (it.fir.visibility == Visibilities.PRIVATE) {
             return@processDirectlyOverriddenProperties ProcessorAction.NEXT
         }
-        val overriddenProperty = declarationStorage.getIrPropertyOrFieldSymbol(it) as IrPropertySymbol
+        val overriddenProperty = declarationStorage.getIrPropertyOrFieldSymbol(it.unwrapSubstitutionOverrides()) as IrPropertySymbol
         val overriddenAccessor = if (isGetter) overriddenProperty.owner.getter?.symbol else overriddenProperty.owner.setter?.symbol
         if (overriddenAccessor != null) {
             overriddenSet += overriddenAccessor
