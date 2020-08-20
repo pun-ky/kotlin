@@ -328,7 +328,7 @@ public interface Map<K, out V> {
     @PlatformDependent
     public fun getOrDefault(key: K, defaultValue: @UnsafeVariance V): V {
         // See default implementation in JDK sources
-        throw UnsupportedOperationException()
+        throw NotImplementedError()
     }
 
     // Views
