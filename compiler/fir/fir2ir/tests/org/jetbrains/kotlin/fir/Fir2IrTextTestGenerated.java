@@ -1716,6 +1716,11 @@ public class Fir2IrTextTestGenerated extends AbstractFir2IrTextTest {
         public void testFirBuilder() throws Exception {
             runTest("compiler/testData/ir/irText/firProblems/FirBuilder.kt");
         }
+
+        @TestMetadata("kt2480.kt")
+        public void testKt2480() throws Exception {
+            runTest("compiler/testData/ir/irText/firProblems/kt2480.kt");
+        }
     }
 
     @TestMetadata("compiler/testData/ir/irText/lambdas")

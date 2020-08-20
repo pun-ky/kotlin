@@ -945,8 +945,19 @@ class Fir2IrDeclarationStorage(
                         return symbol
                     }
                 }
-                createIrFunction(firDeclaration, irParent, origin = parentOrigin).apply {
+                val isFakeOverride = (firFunctionSymbol as? FirNamedFunctionSymbol)?.isFakeOverride == true
+                val thisReceiverOwner = if (isFakeOverride) findIrParent(firFunctionSymbol.deepestOverriddenSymbol().fir) else irParent
+                createIrFunction(
+                    firDeclaration,
+                    irParent,
+                    thisReceiverOwner as? IrClass,
+                    origin = if (isFakeOverride) IrDeclarationOrigin.FAKE_OVERRIDE else parentOrigin
+                ).apply {
                     setAndModifyParent(irParent)
+                    val overriddenSymbol = firFunctionSymbol.overriddenSymbol
+                    if (overriddenSymbol is FirFunctionSymbol) {
+                        overriddenSymbols = listOf(getIrFunctionSymbol(overriddenSymbol) as IrSimpleFunctionSymbol)
+                    }
                 }.symbol
             }
             is FirConstructor -> {
