@@ -19,6 +19,7 @@ object EmptyRangeChecker : FirBasicExpresionChecker() {
     override fun check(functionCall: FirStatement, context: CheckerContext, reporter: DiagnosticReporter) {
         if (functionCall.source is FirFakeSourceElement<*>) return
         if (functionCall !is FirFunctionCall) return
+        // todo: evaluate numeric expressions like `10+2*(2-4)` and process it
         val left = functionCall.rangeLeft ?: return
         val right = functionCall.rangeRight ?: return
 

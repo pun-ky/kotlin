@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirBasicDeclaratio
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtModifierListOwner
 import org.jetbrains.kotlin.psi.psiUtil.visibilityModifier
@@ -32,7 +33,7 @@ object RedundantVisibilityModifierChecker : FirBasicDeclarationChecker() {
         val modifiers = declaration.source.getModifierList()
         val visibilityModifier = when (modifiers) {
             is FirPsiModifierList -> modifiers.modifierList.getVisibility()
-            is FirLightModifierList -> modifiers.modifiers.firstOrNull { it.token.toVisibilityOrNull() != null }?.token?.toVisibilityOrNull()
+            is FirLightModifierList -> modifiers.modifiers.visibilityOrNull()
             else -> null
         } ?: return
         val implicitVisibility = declaration.implicitVisibility(context)
@@ -40,19 +41,17 @@ object RedundantVisibilityModifierChecker : FirBasicDeclarationChecker() {
 
         val redundantVisibility = when {
             visibilityModifier == implicitVisibility -> implicitVisibility
-
-            modifiers?.modifiers?.any { it.token == KtTokens.INTERNAL_KEYWORD } == true &&
+            modifiers?.modifiers.hasModifier(KtTokens.INTERNAL_KEYWORD) &&
                     containingMemberDeclaration.let { decl ->
-                        decl != null && (decl.isLocalMember || modifiers.modifiers.any { it.token == KtTokens.PRIVATE_KEYWORD })
+                        decl != null && (decl.isLocalMember || modifiers?.modifiers.hasModifier(KtTokens.PRIVATE_KEYWORD))
                     } -> Visibilities.INTERNAL
-
-            else -> null
-        } ?: return
+            else -> return
+        }
 
         if (
             redundantVisibility == Visibilities.PUBLIC
             && declaration is FirProperty
-            && modifiers?.modifiers?.any { it.token == KtTokens.OVERRIDE_KEYWORD } == true
+            && modifiers?.modifiers.hasModifier(KtTokens.OVERRIDE_KEYWORD)
             && declaration.isVar
             && declaration.setter?.visibility == Visibilities.PUBLIC
         ) return
@@ -140,4 +139,10 @@ object RedundantVisibilityModifierChecker : FirBasicDeclarationChecker() {
 
     private val FirModifier<*>.isVisibilityModifier
         get() = this.token.toVisibilityOrNull() != null
+
+    private fun List<FirLightModifier>.visibilityOrNull() =
+        firstOrNull { it.token.toVisibilityOrNull() != null }?.token?.toVisibilityOrNull()
+
+    private fun List<FirModifier<*>>?.hasModifier(token: KtModifierKeywordToken) = this != null && any { it.token == token }
+
 }
