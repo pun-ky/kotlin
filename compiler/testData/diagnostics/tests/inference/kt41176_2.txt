@@ -1,0 +1,22 @@
+package
+
+internal final class ArrayMapImpl</*0*/ T : kotlin.Any> {
+    public constructor ArrayMapImpl</*0*/ T : kotlin.Any>()
+    private final var data: kotlin.Array<kotlin.Any?>
+    public final fun entries(): kotlin.collections.List<ArrayMapImpl.Entry<T>>
+    public open override /*1*/ /*fake_override*/ fun equals(/*0*/ other: kotlin.Any?): kotlin.Boolean
+    public open override /*1*/ /*fake_override*/ fun hashCode(): kotlin.Int
+    public open override /*1*/ /*fake_override*/ fun toString(): kotlin.String
+
+    public final data class Entry</*0*/ T> : kotlin.collections.Map.Entry<kotlin.Int, T> {
+        public constructor Entry</*0*/ T>(/*0*/ key: kotlin.Int, /*1*/ value: T)
+        public open override /*1*/ val key: kotlin.Int
+        public open override /*1*/ val value: T
+        public final operator /*synthesized*/ fun component1(): kotlin.Int
+        public final operator /*synthesized*/ fun component2(): T
+        public final /*synthesized*/ fun copy(/*0*/ key: kotlin.Int = ..., /*1*/ value: T = ...): ArrayMapImpl.Entry<T>
+        public open override /*1*/ /*synthesized*/ fun equals(/*0*/ other: kotlin.Any?): kotlin.Boolean
+        public open override /*1*/ /*synthesized*/ fun hashCode(): kotlin.Int
+        public open override /*1*/ /*synthesized*/ fun toString(): kotlin.String
+    }
+}
