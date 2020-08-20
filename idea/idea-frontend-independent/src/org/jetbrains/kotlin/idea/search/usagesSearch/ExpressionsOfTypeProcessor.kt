@@ -24,35 +24,39 @@ import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.asJava.classes.KtLightClass
 import org.jetbrains.kotlin.asJava.toLightClass
-import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.diagnostics.PsiDiagnosticUtils
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.idea.KotlinLanguage
-import org.jetbrains.kotlin.idea.caches.resolve.analyze
-import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptorIfAny
-import org.jetbrains.kotlin.idea.caches.resolve.util.getJavaMemberDescriptor
 import org.jetbrains.kotlin.idea.refactoring.fqName.getKotlinFqName
 import org.jetbrains.kotlin.idea.references.KtDestructuringDeclarationReference
 import org.jetbrains.kotlin.idea.search.excludeFileTypes
 import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinReferencesSearchOptions
 import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinReferencesSearchParameters
 import org.jetbrains.kotlin.idea.search.restrictToKotlinSources
-import org.jetbrains.kotlin.idea.util.FuzzyType
 import org.jetbrains.kotlin.idea.util.ProjectRootsUtil
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.kdoc.psi.impl.KDocName
 import org.jetbrains.kotlin.load.java.descriptors.JavaClassDescriptor
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.*
-import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
 import org.jetbrains.kotlin.resolve.sam.getSingleAbstractMethodOrNull
-import org.jetbrains.kotlin.types.KotlinType
 import java.util.*
 
 //TODO: check if smart search is too expensive
 
+private fun isSamInterface(psiClass: PsiClass): Boolean {
+    val classDescriptor = psiClass.getJavaMemberDescriptor() as? JavaClassDescriptor
+    return classDescriptor != null && getSingleAbstractMethodOrNull(classDescriptor) != null
+}
+
+private fun hasType(element: PsiElement): Boolean {
+    val bindingContext = element.analyze(BodyResolveMode.PARTIAL)
+    return bindingContext.getType(element) != null
+}
+
+
 class ExpressionsOfTypeProcessor(
-    private val typeToSearch: FuzzyType,
+    private val containsTypeOrDerivedInside: (KtDeclaration) -> Boolean,
     private val classToSearch: PsiClass?,
     private val searchScope: SearchScope,
     private val project: Project,
@@ -535,8 +539,7 @@ class ExpressionsOfTypeProcessor(
 
                 if (element.getStrictParentOfType<KtImportDirective>() != null) return true // ignore usage in import
 
-                val bindingContext = element.analyze(BodyResolveMode.PARTIAL)
-                val hasType = bindingContext.getType(element) != null
+                val hasType = hasType(element)
                 if (hasType) { // access to object or companion object
                     processSuspiciousExpression(element)
                     return true
@@ -762,8 +765,7 @@ class ExpressionsOfTypeProcessor(
             if (psiClass != null) {
                 testLog { "Resolved java class to descriptor: ${psiClass.qualifiedName}" }
 
-                val classDescriptor = psiClass.getJavaMemberDescriptor() as? JavaClassDescriptor
-                if (classDescriptor != null && getSingleAbstractMethodOrNull(classDescriptor) != null) {
+                if (isSamInterface(psiClass)) {
                     addSamInterfaceToProcess(psiClass)
                     return true
                 }
@@ -838,9 +840,7 @@ class ExpressionsOfTypeProcessor(
 
             testLog { "Checked type of ${logPresentation(declaration)}" }
 
-            val descriptor = declaration.resolveToDescriptorIfAny() as? CallableDescriptor ?: return
-            val type = descriptor.returnType
-            if (type != null && type.containsTypeOrDerivedInside(typeToSearch)) {
+            if (containsTypeOrDerivedInside(declaration)) {
                 addCallableDeclarationOfOurType(declaration)
             }
         }
@@ -905,10 +905,6 @@ class ExpressionsOfTypeProcessor(
             }
         }
         return true // we don't know
-    }
-
-    private fun KotlinType.containsTypeOrDerivedInside(type: FuzzyType): Boolean {
-        return type.checkIsSuperTypeOf(this) != null || arguments.any { !it.isStarProjection && it.type.containsTypeOrDerivedInside(type) }
     }
 
     private fun isImplicitlyTyped(declaration: KtDeclaration): Boolean {

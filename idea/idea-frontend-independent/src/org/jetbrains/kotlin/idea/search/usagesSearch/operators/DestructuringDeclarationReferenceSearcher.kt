@@ -22,10 +22,8 @@ import com.intellij.psi.search.SearchRequestCollector
 import com.intellij.psi.search.SearchScope
 import com.intellij.util.Processor
 import org.jetbrains.kotlin.KtNodeTypes
-import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.idea.references.KtDestructuringDeclarationReference
 import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinReferencesSearchOptions
-import org.jetbrains.kotlin.idea.search.usagesSearch.dataClassComponentFunction
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstance
 
@@ -44,15 +42,6 @@ class DestructuringDeclarationReferenceSearcher(
     options,
     wordsToSearch = listOf("(")
 ) {
-
-    override fun resolveTargetToDescriptor(): FunctionDescriptor? {
-        return if (targetDeclaration is KtParameter) {
-            targetDeclaration.dataClassComponentFunction()
-        } else {
-            super.resolveTargetToDescriptor()
-        }
-    }
-
     override fun extractReference(element: KtElement): PsiReference? {
         val destructuringDeclaration = element as? KtDestructuringDeclaration ?: return null
         val entries = destructuringDeclaration.entries

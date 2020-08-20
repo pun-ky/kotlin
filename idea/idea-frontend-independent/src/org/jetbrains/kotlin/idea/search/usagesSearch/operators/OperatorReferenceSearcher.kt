@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.idea.search.usagesSearch.operators
 
-import com.intellij.lang.java.JavaLanguage
 import com.intellij.openapi.progress.ProgressIndicatorProvider
 import com.intellij.openapi.progress.util.ProgressWrapper
 import com.intellij.psi.*
@@ -13,36 +12,25 @@ import com.intellij.psi.search.*
 import com.intellij.util.Processor
 import org.jetbrains.kotlin.asJava.elements.KtLightMethod
 import org.jetbrains.kotlin.asJava.namedUnwrappedElement
-import org.jetbrains.kotlin.asJava.toLightClass
-import org.jetbrains.kotlin.descriptors.ClassDescriptor
-import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.idea.KotlinIdeaAnalysisBundle
-import org.jetbrains.kotlin.idea.caches.resolve.getResolutionFacade
-import org.jetbrains.kotlin.idea.caches.resolve.resolveToDescriptorIfAny
-import org.jetbrains.kotlin.idea.caches.resolve.util.getJavaOrKotlinMemberDescriptor
-import org.jetbrains.kotlin.idea.caches.resolve.util.hasJavaResolutionFacade
-import org.jetbrains.kotlin.idea.codeInsight.DescriptorToSourceUtilsIde
 import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinReferencesSearchOptions
 import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinRequestResultProcessor
 import org.jetbrains.kotlin.idea.search.restrictToKotlinSources
 import org.jetbrains.kotlin.idea.search.usagesSearch.ExpressionsOfTypeProcessor
 import org.jetbrains.kotlin.idea.search.usagesSearch.ExpressionsOfTypeProcessor.Companion.logPresentation
 import org.jetbrains.kotlin.idea.search.usagesSearch.ExpressionsOfTypeProcessor.Companion.testLog
-import org.jetbrains.kotlin.idea.util.FuzzyType
+import org.jetbrains.kotlin.idea.search.usagesSearch.forceResolveReferences
+import org.jetbrains.kotlin.idea.search.usagesSearch.getReceiverTypeSearcherInfo
+import org.jetbrains.kotlin.idea.search.usagesSearch.ifTrue
 import org.jetbrains.kotlin.idea.util.application.runReadAction
-import org.jetbrains.kotlin.idea.util.fuzzyExtensionReceiverType
-import org.jetbrains.kotlin.idea.util.toFuzzyType
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 import org.jetbrains.kotlin.resolve.DataClassDescriptorResolver
-import org.jetbrains.kotlin.resolve.descriptorUtil.isExtension
-import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
 import org.jetbrains.kotlin.types.expressions.OperatorConventions
 import org.jetbrains.kotlin.util.OperatorNameConventions
-import org.jetbrains.kotlin.util.isValidOperator
 import java.util.*
 
 abstract class OperatorReferenceSearcher<TReferenceElement : KtElement>(
@@ -89,10 +77,9 @@ abstract class OperatorReferenceSearcher<TReferenceElement : KtElement>(
             options: KotlinReferencesSearchOptions
         ): OperatorReferenceSearcher<*>? {
             return runReadAction {
-                if (declaration.isValid)
+                declaration.isValid.ifTrue {
                     createInReadAction(declaration, searchScope, consumer, optimizer, options)
-                else
-                    null
+                }
             }
         }
 
@@ -203,18 +190,10 @@ abstract class OperatorReferenceSearcher<TReferenceElement : KtElement>(
         }
     }
 
-    protected open fun resolveTargetToDescriptor(): FunctionDescriptor? {
-        return when {
-            targetDeclaration is KtDeclaration -> targetDeclaration.resolveToDescriptorIfAny(BodyResolveMode.FULL)
-            targetDeclaration is PsiMember && targetDeclaration.hasJavaResolutionFacade() ->
-                targetDeclaration.getJavaOrKotlinMemberDescriptor()
-            else -> null
-        } as? FunctionDescriptor
-    }
-
     fun run() {
-        val receiverType = runReadAction { extractReceiverType() } ?: return
-        val psiClass = runReadAction { receiverType.toPsiClass() }
+
+        val (psiClass, containsTypeOrDerivedInside) =
+            targetDeclaration.getReceiverTypeSearcherInfo(this is DestructuringDeclarationReferenceSearcher) ?: return
 
         val inProgress = SearchesInProgress.get()
         if (psiClass != null) {
@@ -235,7 +214,7 @@ abstract class OperatorReferenceSearcher<TReferenceElement : KtElement>(
 
         try {
             ExpressionsOfTypeProcessor(
-                receiverType,
+                containsTypeOrDerivedInside,
                 psiClass,
                 searchScope,
                 project,
@@ -244,27 +223,6 @@ abstract class OperatorReferenceSearcher<TReferenceElement : KtElement>(
             ).run()
         } finally {
             inProgress.remove(psiClass ?: targetDeclaration)
-        }
-    }
-
-    private fun FuzzyType.toPsiClass(): PsiClass? {
-        val classDescriptor = type.constructor.declarationDescriptor ?: return null
-        val classDeclaration = DescriptorToSourceUtilsIde.getAnyDeclaration(project, classDescriptor)
-        return when (classDeclaration) {
-            is PsiClass -> classDeclaration
-            is KtClassOrObject -> classDeclaration.toLightClass()
-            else -> null
-        }
-    }
-
-    private fun extractReceiverType(): FuzzyType? {
-        val descriptor = resolveTargetToDescriptor()?.takeIf { it.isValidOperator() } ?: return null
-
-        return if (descriptor.isExtension) {
-            descriptor.fuzzyExtensionReceiverType()!!
-        } else {
-            val classDescriptor = descriptor.containingDeclaration as? ClassDescriptor ?: return null
-            classDescriptor.defaultType.toFuzzyType(classDescriptor.typeConstructor.parameters)
         }
     }
 
@@ -284,7 +242,7 @@ abstract class OperatorReferenceSearcher<TReferenceElement : KtElement>(
                             }
 
                             // resolve all references at once
-                            (element.containingFile as KtFile).getResolutionFacade().analyze(elements, BodyResolveMode.PARTIAL)
+                            (element.containingFile as? KtFile)?.forceResolveReferences(elements)
 
                             refs
                                 .filter { it.isReferenceTo(targetDeclaration) }

@@ -15,11 +15,8 @@ import com.intellij.psi.util.CachedValuesManager
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.asJava.ImpreciseResolveResult
 import org.jetbrains.kotlin.asJava.ImpreciseResolveResult.*
-import org.jetbrains.kotlin.idea.caches.project.getNullableModuleInfo
 import org.jetbrains.kotlin.idea.caches.trackers.KotlinCodeBlockModificationListener
-import org.jetbrains.kotlin.idea.compiler.IDELanguageSettingsProvider
-import org.jetbrains.kotlin.idea.project.TargetPlatformDetector
-import org.jetbrains.kotlin.idea.project.findAnalyzerServices
+import org.jetbrains.kotlin.idea.search.usagesSearch.getDefaultImports
 import org.jetbrains.kotlin.idea.stubindex.KotlinTypeAliasShortNameIndex
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.name.FqName
@@ -244,12 +241,4 @@ class PsiBasedClassResolver @TestOnly constructor(private val targetClassFqName:
         }
         return Result.Ambiguity
     }
-}
-
-private fun KtFile.getDefaultImports(): List<ImportPath> {
-    val moduleInfo = getNullableModuleInfo() ?: return emptyList()
-    return TargetPlatformDetector.getPlatform(this).findAnalyzerServices(project).getDefaultImports(
-        IDELanguageSettingsProvider.getLanguageVersionSettings(moduleInfo, project),
-        includeLowPriorityImports = true
-    )
 }

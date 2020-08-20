@@ -33,25 +33,20 @@ import org.jetbrains.kotlin.asJava.elements.KtLightParameter
 import org.jetbrains.kotlin.asJava.namedUnwrappedElement
 import org.jetbrains.kotlin.asJava.toLightClass
 import org.jetbrains.kotlin.asJava.toLightElements
-import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.idea.references.KtSimpleNameReference
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.idea.search.*
 import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinReferencesSearchOptions.Companion.Empty
 import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinReferencesSearchOptions.Companion.calculateEffectiveScope
-import org.jetbrains.kotlin.idea.search.usagesSearch.dataClassComponentFunction
 import org.jetbrains.kotlin.idea.search.usagesSearch.filterDataClassComponentsIfDisabled
-import org.jetbrains.kotlin.idea.search.usagesSearch.getClassNameForCompanionObject
+import org.jetbrains.kotlin.idea.search.usagesSearch.ifTrue
 import org.jetbrains.kotlin.idea.search.usagesSearch.operators.OperatorReferenceSearcher
 import org.jetbrains.kotlin.idea.stubindex.KotlinSourceFilterScope
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.idea.util.expectedDeclarationIfAny
 import org.jetbrains.kotlin.idea.util.isExpectDeclaration
 import org.jetbrains.kotlin.psi.*
-import org.jetbrains.kotlin.psi.psiUtil.getQualifiedElementSelector
-import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
-import org.jetbrains.kotlin.psi.psiUtil.hasActualModifier
-import org.jetbrains.kotlin.psi.psiUtil.parents
+import org.jetbrains.kotlin.psi.psiUtil.*
 import java.util.*
 
 data class KotlinReferencesSearchOptions(
@@ -194,7 +189,6 @@ class KotlinReferencesSearcher : QueryExecutorBase<PsiReference, ReferencesSearc
                 }
             }
 
-
             val classNameForCompanionObject = elementToSearch.getClassNameForCompanionObject()
             if (classNameForCompanionObject != null) {
                 queryParameters.optimizer.searchWord(
@@ -220,24 +214,13 @@ class KotlinReferencesSearcher : QueryExecutorBase<PsiReference, ReferencesSearc
             }
 
             if (kotlinOptions.searchForComponentConventions) {
-                when (element) {
-                    is KtParameter -> {
-                        val componentFunctionDescriptor = element.dataClassComponentFunction()
-                        if (componentFunctionDescriptor != null) {
-                            val containingClass = element.getStrictParentOfType<KtClassOrObject>()?.toLightClass()
-                            searchDataClassComponentUsages(containingClass, componentFunctionDescriptor, kotlinOptions)
-                        }
-                    }
-
-                    is KtLightParameter -> {
-                        val componentFunctionDescriptor = element.kotlinOrigin?.dataClassComponentFunction()
-                        if (componentFunctionDescriptor != null) {
-                            searchDataClassComponentUsages(element.method.containingClass, componentFunctionDescriptor, kotlinOptions)
-                        }
-                    }
-                }
+                searchForComponentConventions(element)
             }
         }
+
+        private fun PsiNamedElement.getClassNameForCompanionObject(): String? =
+            (this is KtObjectDeclaration && this.isCompanion())
+                .ifTrue { getNonStrictParentOfType<KtClass>()?.name }
 
         private fun searchNamedArguments(parameter: KtParameter) {
             val parameterName = parameter.name ?: return
@@ -350,13 +333,40 @@ class KotlinReferencesSearcher : QueryExecutorBase<PsiReference, ReferencesSearc
             }
         }
 
+        private fun searchForComponentConventions(element: PsiElement) {
+            when (element) {
+                is KtParameter -> {
+                    val componentMethodName = element.dataClassComponentMethodName()
+                    if (componentMethodName != null) {
+                        val containingClass = element.getStrictParentOfType<KtClassOrObject>()?.toLightClass()
+                        searchDataClassComponentUsages(
+                            containingClass = containingClass,
+                            componentMethodName = componentMethodName,
+                            kotlinOptions = kotlinOptions
+                        )
+                    }
+                }
+
+                is KtLightParameter -> {
+                    val componentMethodName = element.kotlinOrigin?.dataClassComponentMethodName()
+                    if (componentMethodName != null) {
+                        searchDataClassComponentUsages(
+                            containingClass = element.method.containingClass,
+                            componentMethodName = componentMethodName,
+                            kotlinOptions = kotlinOptions
+                        )
+                    }
+                }
+            }
+        }
+
         private fun searchDataClassComponentUsages(
             containingClass: PsiClass?,
-            componentFunctionDescriptor: FunctionDescriptor,
+            componentMethodName: String,
             kotlinOptions: KotlinReferencesSearchOptions
         ) {
             val componentFunction = containingClass?.methods?.firstOrNull {
-                it.name == componentFunctionDescriptor.name.asString() && it.parameterList.parametersCount == 0
+                it.name == componentMethodName && it.parameterList.parametersCount == 0
             }
             if (componentFunction != null) {
                 searchNamedElement(componentFunction)

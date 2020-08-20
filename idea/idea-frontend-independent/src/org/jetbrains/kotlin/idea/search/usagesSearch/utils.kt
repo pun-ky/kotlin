@@ -37,15 +37,19 @@ import org.jetbrains.kotlin.idea.references.unwrappedTargets
 import org.jetbrains.kotlin.idea.search.declarationsSearch.HierarchySearchRequest
 import org.jetbrains.kotlin.idea.search.declarationsSearch.searchInheritors
 import org.jetbrains.kotlin.idea.search.ideaExtensions.KotlinReferencesSearchOptions
+import org.jetbrains.kotlin.idea.util.FuzzyType
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.contains
 import org.jetbrains.kotlin.psi.psiUtil.getNonStrictParentOfType
 import org.jetbrains.kotlin.resolve.*
+import org.jetbrains.kotlin.resolve.descriptorUtil.isExtension
 import org.jetbrains.kotlin.resolve.descriptorUtil.isTypeRefinementEnabled
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
+import org.jetbrains.kotlin.types.KotlinType
+import org.jetbrains.kotlin.util.isValidOperator
 
 val KtDeclaration.descriptor: DeclarationDescriptor?
     get() = if (this is KtParameter) this.descriptor else this.resolveToDescriptorIfAny(BodyResolveMode.FULL)
@@ -306,4 +310,77 @@ fun <T : PsiNamedElement> List<T>.filterDataClassComponentsIfDisabled(kotlinOpti
     }
 
     return filter { !it.isComponentElement() }
+}
+
+inline fun <T> Boolean.ifTrue(body: () -> T?): T? = if (this) body() else null
+
+fun KtFile.forceResolveReferences(elements: List<KtElement>) {
+    (element.containingFile as KtFile).getResolutionFacade().analyze(elements, BodyResolveMode.PARTIAL)
+}
+
+private fun PsiElement.resolveTargetToDescriptor(isDestructionDeclarationSearch: Boolean): FunctionDescriptor? {
+
+    if (isDestructionDeclarationSearch && targetDeclaration is KtParameter) {
+        return dataClassComponentFunction()
+    }
+
+    return when {
+        this is KtDeclaration -> resolveToDescriptorIfAny(BodyResolveMode.FULL)
+        this is PsiMember && hasJavaResolutionFacade() ->
+            this.getJavaOrKotlinMemberDescriptor()
+        else -> null
+    } as? FunctionDescriptor
+}
+
+private fun containsTypeOrDerivedInside(declaration: KtDeclaration, typeToSearch: FuzzyType): Boolean {
+
+    fun KotlinType.containsTypeOrDerivedInside(type: FuzzyType): Boolean {
+        return type.checkIsSuperTypeOf(this) != null || arguments.any { !it.isStarProjection && it.type.containsTypeOrDerivedInside(type) }
+    }
+
+    val descriptor = declaration.resolveToDescriptorIfAny() as? CallableDescriptor
+    val type = descriptor?.returnType
+    return type != null && type.containsTypeOrDerivedInside(typeToSearch)
+}
+
+private fun FuzzyType.toPsiClass(): PsiClass? {
+    val classDescriptor = type.constructor.declarationDescriptor ?: return null
+    val classDeclaration = DescriptorToSourceUtilsIde.getAnyDeclaration(project, classDescriptor)
+    return when (classDeclaration) {
+        is PsiClass -> classDeclaration
+        is KtClassOrObject -> classDeclaration.toLightClass()
+        else -> null
+    }
+}
+
+private fun PsiElement.extractReceiverType(isDestructionDeclarationSearch: Boolean): FuzzyType? {
+    val descriptor = resolveTargetToDescriptor(isDestructionDeclarationSearch)?.takeIf { it.isValidOperator() } ?: return null
+
+    return if (descriptor.isExtension) {
+        descriptor.fuzzyExtensionReceiverType()!!
+    } else {
+        val classDescriptor = descriptor.containingDeclaration as? ClassDescriptor ?: return null
+        classDescriptor.defaultType.toFuzzyType(classDescriptor.typeConstructor.parameters)
+    }
+}
+
+data class ReceiverTypeSearcherInfo(
+    val psiClass: PsiClass?,
+    val containsTypeOrDerivedInside: ((KtDeclaration) -> Boolean)
+)
+
+fun PsiElement.getReceiverTypeSearcherInfo(isDestructionDeclarationSearch: Boolean): ReceiverTypeSearcherInfo? {
+    val receiverType = runReadAction { extractReceiverType(isDestructionDeclarationSearch) } ?: return null
+    val psiClass = runReadAction { receiverType.toPsiClass() }
+    return ReceiverTypeSearcherInfo(psiClass) {
+        containsTypeOrDerivedInside(it, receiverType)
+    }
+}
+
+fun KtFile.getDefaultImports(): List<ImportPath> {
+    val moduleInfo = getNullableModuleInfo() ?: return emptyList()
+    return TargetPlatformDetector.getPlatform(this).findAnalyzerServices(project).getDefaultImports(
+        IDELanguageSettingsProvider.getLanguageVersionSettings(moduleInfo, project),
+        includeLowPriorityImports = true
+    )
 }
