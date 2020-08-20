@@ -1002,8 +1002,21 @@ class Fir2IrDeclarationStorage(
                         return symbol
                     }
                 }
-                createIrProperty(fir, irParent, origin = parentOrigin).apply {
+                val isFakeOverride = (firVariableSymbol as? FirPropertySymbol)?.isFakeOverride == true
+                val thisReceiverOwner = if (isFakeOverride) findIrParent(firVariableSymbol.deepestOverriddenSymbol().fir) else irParent
+                createIrProperty(
+                    fir,
+                    irParent,
+                    thisReceiverOwner as? IrClass,
+                    origin = if (isFakeOverride) IrDeclarationOrigin.FAKE_OVERRIDE else parentOrigin
+                ).apply {
                     setAndModifyParent(irParent)
+                    val overriddenSymbol = firVariableSymbol.overriddenSymbol
+                    if (overriddenSymbol is FirPropertySymbol) {
+                        val irOverriddenPropertySymbol = getIrPropertyOrFieldSymbol(overriddenSymbol) as IrPropertySymbol
+                        getter?.overriddenSymbols = listOfNotNull(irOverriddenPropertySymbol.owner.getter?.symbol)
+                        setter?.overriddenSymbols = listOfNotNull(irOverriddenPropertySymbol.owner.setter?.symbol)
+                    }
                 }.symbol
             }
             is FirField -> {
