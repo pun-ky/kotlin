@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.contract.contextual.CoeffectFamily
 import org.jetbrains.kotlin.fir.contract.contextual.diagnostics.CoeffectContextVerificationError
 import org.jetbrains.kotlin.fir.contract.contextual.diagnostics.MissingCoeffectContextError
 import org.jetbrains.kotlin.fir.contract.contextual.diagnostics.UnexpectedCoeffectContextError
+import org.jetbrains.kotlin.fir.contract.contextual.family.CheckedExceptionContextError
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
@@ -67,6 +68,7 @@ object CoeffectAnalyzer : AbstractCoeffectAnalyzer() {
     private fun CoeffectContextVerificationError.toFirError(source: FirSourceElement): FirDiagnostic<*>? = when (this) {
         is MissingCoeffectContextError -> FirErrors.MISSING_COEFFECT_CONTEXT.on(source)
         is UnexpectedCoeffectContextError -> FirErrors.UNEXPECTED_COEFFECT_CONTEXT.on(source)
+        is CheckedExceptionContextError -> FirErrors.UNCHECKED_EXCEPTION.on(source, exceptionType)
         else -> null
     }
 }

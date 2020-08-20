@@ -11,6 +11,9 @@ import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.cfa.FirControlFlowChecker
 import org.jetbrains.kotlin.fir.contract.contextual.*
 import org.jetbrains.kotlin.fir.contract.contextual.declaration.CoeffectActionExtractors
+import org.jetbrains.kotlin.fir.contract.contextual.family.CatchesExceptionCoeffectContextProvider
+import org.jetbrains.kotlin.fir.contract.contextual.family.CheckedExceptionCoeffectContextCleaner
+import org.jetbrains.kotlin.fir.contract.contextual.family.CheckedExceptionCoeffectFamily
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
 import org.jetbrains.kotlin.fir.contracts.effects
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
@@ -26,6 +29,7 @@ import org.jetbrains.kotlin.fir.resolve.isInvoke
 import org.jetbrains.kotlin.fir.resolve.transformers.contracts.ConeCoeffectEffectDeclaration
 import org.jetbrains.kotlin.fir.resolve.transformers.contracts.ConeLambdaCoeffectEffectDeclaration
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
+import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 
 abstract class AbstractCoeffectAnalyzer : FirControlFlowChecker() {
@@ -175,6 +179,8 @@ abstract class AbstractCoeffectAnalyzer : FirControlFlowChecker() {
         val verifiableCoeffectFamilies: Set<CoeffectFamily>
     ) : ControlFlowGraphVisitor<CoeffectContextInfo, Collection<CoeffectContextInfo>>() {
 
+        private val provideCheckedExceptions = CheckedExceptionCoeffectFamily.isVerifiable()
+
         private fun CoeffectFamily?.isVerifiable(): Boolean = this != null && this in verifiableCoeffectFamilies
 
         override fun visitNode(node: CFGNode<*>, data: Collection<CoeffectContextInfo>): CoeffectContextInfo {
@@ -186,6 +192,26 @@ abstract class AbstractCoeffectAnalyzer : FirControlFlowChecker() {
                 if (it.cleaner?.family.isVerifiable()) dataForNode += it.cleaner
             }
 
+            return dataForNode
+        }
+
+        override fun visitTryMainBlockEnterNode(node: TryMainBlockEnterNode, data: Collection<CoeffectContextInfo>): CoeffectContextInfo {
+            var dataForNode = visitNode(node, data)
+            if (provideCheckedExceptions) {
+                for (catch in node.fir.catches) {
+                    dataForNode += CatchesExceptionCoeffectContextProvider(catch.parameter.returnTypeRef.coneType, catch)
+                }
+            }
+            return dataForNode
+        }
+
+        override fun visitTryMainBlockExitNode(node: TryMainBlockExitNode, data: Collection<CoeffectContextInfo>): CoeffectContextInfo {
+            var dataForNode = visitNode(node, data)
+            if (provideCheckedExceptions) {
+                for (catch in node.fir.catches) {
+                    dataForNode += CheckedExceptionCoeffectContextCleaner(catch.parameter.returnTypeRef.coneType, catch)
+                }
+            }
             return dataForNode
         }
     }
