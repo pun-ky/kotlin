@@ -13,9 +13,12 @@ import org.jetbrains.kotlin.descriptors.annotations.Annotations
 import org.jetbrains.kotlin.descriptors.annotations.FilteredAnnotations
 import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemBuilder
 import org.jetbrains.kotlin.resolve.calls.inference.addSubsystemFromArgument
+import org.jetbrains.kotlin.resolve.calls.inference.components.ResultTypeResolver
+import org.jetbrains.kotlin.resolve.calls.inference.components.TypeVariableDirectionCalculator
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
 import org.jetbrains.kotlin.resolve.calls.inference.model.CoroutinePosition
 import org.jetbrains.kotlin.resolve.calls.inference.model.LambdaArgumentConstraintPosition
+import org.jetbrains.kotlin.resolve.calls.inference.model.TypeVariableTypeConstructor
 import org.jetbrains.kotlin.resolve.calls.model.*
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.UnwrappedType
@@ -24,7 +27,8 @@ import org.jetbrains.kotlin.types.typeUtil.builtIns
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 
 class PostponedArgumentsAnalyzer(
-    private val callableReferenceResolver: CallableReferenceResolver
+    private val callableReferenceResolver: CallableReferenceResolver,
+    private val resultTypeResolver: ResultTypeResolver
 ) {
     interface Context : TypeSystemInferenceExtensionContext {
         fun buildCurrentSubstitutor(additionalBindings: Map<TypeConstructorMarker, StubTypeMarker>): TypeSubstitutorMarker
@@ -179,10 +183,28 @@ class PostponedArgumentsAnalyzer(
             )
         }
 
+        val lambdaReturnType = lambda.returnType.let(substitute)
         if (!returnArgumentsInfo.returnArgumentsExist) {
             val unitType = lambda.returnType.builtIns.unitType
-            val lambdaReturnType = lambda.returnType.let(substitute)
             c.getBuilder().addSubtypeConstraint(unitType, lambdaReturnType, LambdaArgumentConstraintPosition(lambda))
+        }
+
+        (lambdaReturnType.constructor as? TypeVariableTypeConstructor)?.let { variable ->
+            val variableWithConstraints = c.getBuilder().currentStorage().notFixedTypeVariables[variable] ?: return@let
+            val calculatedType by lazy {
+                resultTypeResolver.findResultType(
+                    c as ResultTypeResolver.Context,
+                    variableWithConstraints,
+                    TypeVariableDirectionCalculator.ResolveDirection.TO_SUPERTYPE
+                )
+            }
+            for (returnArgument in allReturnArguments) {
+                val callResult = (returnArgument as? SubKotlinCallArgument)?.callResult ?: continue
+                if (callResult.resultCallAtom.atom.isSpecialConstructionCall) {
+                    val returnType = returnArgument.receiver.stableType
+                    c.getBuilder().addEqualityConstraint(returnType, calculatedType, LambdaArgumentConstraintPosition(lambda))
+                }
+            }
         }
 
         lambda.setAnalyzedResults(returnArgumentsInfo, subResolvedKtPrimitives)

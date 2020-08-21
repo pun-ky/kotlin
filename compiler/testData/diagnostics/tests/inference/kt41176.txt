@@ -1,0 +1,9 @@
+package
+
+public fun </*0*/ T> id(/*0*/ x: T): T
+public fun ifProblem(/*0*/ b: kotlin.Boolean): kotlin.String?
+public fun </*0*/ R> materialize(): R
+public fun </*0*/ K> select(/*0*/ x: K, /*1*/ y: K): K
+public fun selectProblem(): kotlin.String?
+public fun tryProblem(): kotlin.String?
+public fun whenProblem(/*0*/ b: kotlin.Boolean): kotlin.String?

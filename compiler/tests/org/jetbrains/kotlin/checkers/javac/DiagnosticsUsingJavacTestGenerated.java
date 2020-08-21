@@ -10356,6 +10356,11 @@ public class DiagnosticsUsingJavacTestGenerated extends AbstractDiagnosticsUsing
                 runTest("compiler/testData/diagnostics/tests/inference/kt39220.kt");
             }
 
+            @TestMetadata("kt41176.kt")
+            public void testKt41176() throws Exception {
+                runTest("compiler/testData/diagnostics/tests/inference/kt41176.kt");
+            }
+
             @TestMetadata("kt6175.kt")
             public void testKt6175() throws Exception {
                 runTest("compiler/testData/diagnostics/tests/inference/kt6175.kt");

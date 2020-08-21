@@ -19,6 +19,9 @@ package org.jetbrains.kotlin.resolve.calls.tower
 import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.Call
+import org.jetbrains.kotlin.psi.KtIfExpression
+import org.jetbrains.kotlin.psi.KtTryExpression
+import org.jetbrains.kotlin.psi.KtWhenExpression
 import org.jetbrains.kotlin.resolve.BindingTrace
 import org.jetbrains.kotlin.resolve.calls.CallTransformer
 import org.jetbrains.kotlin.resolve.calls.callUtil.getResolvedCall
@@ -67,7 +70,13 @@ class PSIKotlinCallImpl(
     override val resultDataFlowInfo: DataFlowInfo,
     override val dataFlowInfoForArguments: DataFlowInfoForArguments,
     override val isForImplicitInvoke: Boolean
-) : PSIKotlinCall()
+) : PSIKotlinCall() {
+    override val isSpecialConstructionCall: Boolean
+        get() = when (psiCall.calleeExpression) {
+            is KtIfExpression, is KtWhenExpression, is KtTryExpression -> true
+            else -> false
+        }
+}
 
 class PSIKotlinCallForVariable(
     val baseCall: PSIKotlinCallImpl,
@@ -89,6 +98,7 @@ class PSIKotlinCallForVariable(
     }
 
     override val isForImplicitInvoke: Boolean get() = false
+    override val isSpecialConstructionCall: Boolean get() = false
 }
 
 class PSIKotlinCallForInvoke(
@@ -109,6 +119,7 @@ class PSIKotlinCallForInvoke(
     override val psiCall: Call
     override val tracingStrategy: TracingStrategy
     override val isForImplicitInvoke: Boolean = true
+    override val isSpecialConstructionCall: Boolean get() = false
 
     init {
         val variableReceiver = dispatchReceiverForInvokeExtension ?: explicitReceiver
