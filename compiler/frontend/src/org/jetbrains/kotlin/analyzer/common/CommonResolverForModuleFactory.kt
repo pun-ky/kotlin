@@ -120,7 +120,7 @@ class CommonResolverForModuleFactory(
             dependenciesContainer: CommonDependenciesContainer? = null,
             metadataPartProviderFactory: (ModuleContent<ModuleInfo>) -> MetadataPartProvider
         ): AnalysisResult {
-            val moduleInfo = SourceModuleInfo(
+            val moduleInfoForSourceModule = SourceModuleInfo(
                 moduleName,
                 capabilities,
                 dependenciesContainer?.moduleInfos?.toList().orEmpty(),
@@ -146,23 +146,25 @@ class CommonResolverForModuleFactory(
             )
 
             @Suppress("NAME_SHADOWING")
-            val resolver = ResolverForSingleModuleProject<ModuleInfo>(
+            val resolver = EagerResolverForProject.create<ModuleInfo>(
                 "sources for metadata serializer",
                 ProjectContext(project, "metadata serializer"),
-                moduleInfo,
                 resolverForModuleFactory,
-                GlobalSearchScope.allScope(project),
-                languageVersionSettings = multiplatformLanguageSettings,
-                syntheticFiles = files,
-                knownDependencyModuleDescriptors = dependenciesContainer?.moduleInfos
-                    ?.associateWith(dependenciesContainer::moduleDescriptorForModuleInfo).orEmpty()
-            )
+                moduleInfosToCreateDescriptorsFor = listOf(moduleInfoForSourceModule),
+                constantSearchScope = GlobalSearchScope.allScope(project),
+                constantLanguageVersionSettings = multiplatformLanguageSettings,
+                constantSynthethicFiles = files,
+            ) {
+                dependenciesContainer?.moduleInfos?.forEach {
+                    addModuleInfo(it, dependenciesContainer.moduleDescriptorForModuleInfo(it))
+                }
+            }
 
-            val moduleDescriptor = resolver.descriptorForModule(moduleInfo)
+            val moduleDescriptor = resolver.descriptorForModule(moduleInfoForSourceModule)
 
-            dependenciesContainer?.registerDependencyForAllModules(moduleInfo, moduleDescriptor)
+            dependenciesContainer?.registerDependencyForAllModules(moduleInfoForSourceModule, moduleDescriptor)
 
-            val container = resolver.resolverForModule(moduleInfo).componentProvider
+            val container = resolver.resolverForModule(moduleInfoForSourceModule).componentProvider
 
             container.get<LazyTopDownAnalyzer>().analyzeDeclarations(TopDownAnalysisMode.TopLevelDeclarations, files)
 
@@ -174,7 +176,7 @@ class CommonResolverForModuleFactory(
 interface CommonDependenciesContainer {
     val moduleInfos: List<ModuleInfo>
 
-    fun moduleDescriptorForModuleInfo(moduleInfo: ModuleInfo): ModuleDescriptor
+    fun moduleDescriptorForModuleInfo(moduleInfo: ModuleInfo): ModuleDescriptorImpl
 
     fun registerDependencyForAllModules(
         moduleInfo: ModuleInfo,

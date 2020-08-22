@@ -31,9 +31,7 @@ import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
 import org.jetbrains.kotlin.container.get
 import org.jetbrains.kotlin.context.ProjectContext
-import org.jetbrains.kotlin.context.withModule
 import org.jetbrains.kotlin.descriptors.*
-import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.name.FqName
@@ -91,30 +89,21 @@ class MultiModuleJavaAnalysisCustomTest : KtUsefulTestCase() {
             }
         )
 
-        val resolverForProject = object : AbstractResolverForProject<TestModule>(
-            "test",
+        val resolverForProject = EagerResolverForProject.create<TestModule>(
+            "MultiModuleJavaAnalysisCustomTest",
             projectContext,
-            modules
+            JvmResolverForModuleFactory(
+                platformParameters,
+                CompilerEnvironment,
+                JvmPlatforms.defaultJvmPlatform
+            ),
+            moduleInfosToCreateDescriptorsFor = modules,
+            constantBuiltIns = builtIns,
+            constantSdkDependency = null,
+            constantLanguageVersionSettings = LanguageVersionSettingsImpl.DEFAULT
         ) {
-            override fun sdkDependency(module: TestModule): TestModule? = null
-
-            override fun modulesContent(module: TestModule): ModuleContent<TestModule> =
-                ModuleContent(module, module.kotlinFiles, module.javaFilesScope)
-
-            override fun builtInsForModule(module: TestModule): KotlinBuiltIns = builtIns
-
-            override fun createResolverForModule(descriptor: ModuleDescriptor, moduleInfo: TestModule): ResolverForModule =
-                JvmResolverForModuleFactory(
-                    platformParameters,
-                    CompilerEnvironment,
-                    JvmPlatforms.defaultJvmPlatform
-                ).createResolverForModule(
-                    descriptor as ModuleDescriptorImpl,
-                    projectContext.withModule(descriptor),
-                    modulesContent(moduleInfo),
-                    this,
-                    LanguageVersionSettingsImpl.DEFAULT
-                )
+            syntheticFilesForModule { it.kotlinFiles }
+            searchScopeForModule { it.javaFilesScope }
         }
 
         builtIns.initialize(

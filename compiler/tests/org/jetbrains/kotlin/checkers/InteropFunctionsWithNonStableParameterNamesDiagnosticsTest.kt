@@ -67,7 +67,7 @@ class InteropFunctionsWithNonStableParameterNamesDiagnosticsTest : AbstractDiagn
             capabilities = mapOf(
 //                MODULE_FILES to files
             ),
-            dependenciesContainer = CommonDependenciesContainerImpl(moduleContext.module.allDependencyModules)
+            dependenciesContainer = CommonDependenciesContainerImpl(moduleContext.module.allDependencyModules as List<ModuleDescriptorImpl>)
         ) { content ->
             environment.createPackagePartProvider(content.moduleContentScope)
         }
@@ -77,8 +77,8 @@ class InteropFunctionsWithNonStableParameterNamesDiagnosticsTest : AbstractDiagn
         doTest(File(TEST_DATA_DIR, "test.kt").path)
     }
 
-    private class CommonDependenciesContainerImpl(dependees: Collection<ModuleDescriptor>) : CommonDependenciesContainer {
-        private class ModuleInfoImpl(val module: ModuleDescriptor) : ModuleInfo {
+    private class CommonDependenciesContainerImpl(dependees: Collection<ModuleDescriptorImpl>) : CommonDependenciesContainer {
+        private class ModuleInfoImpl(val module: ModuleDescriptorImpl) : ModuleInfo {
             override val name: Name get() = module.name
 
             override fun dependencies(): List<ModuleInfo> = listOf(this)
@@ -92,7 +92,7 @@ class InteropFunctionsWithNonStableParameterNamesDiagnosticsTest : AbstractDiagn
 
         override val moduleInfos: List<ModuleInfo> get() = dependeeModuleInfos
 
-        override fun moduleDescriptorForModuleInfo(moduleInfo: ModuleInfo): ModuleDescriptor {
+        override fun moduleDescriptorForModuleInfo(moduleInfo: ModuleInfo): ModuleDescriptorImpl {
             // let's assume there is a few module infos at all
             return dependeeModuleInfos.firstOrNull { it === moduleInfo }?.module
                 ?: error("Unknown module info $moduleInfo")

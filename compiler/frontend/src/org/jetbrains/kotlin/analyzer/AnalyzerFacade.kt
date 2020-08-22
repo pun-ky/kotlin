@@ -43,10 +43,11 @@ class ResolverForModule(
 abstract class ResolverForProject<M : ModuleInfo> {
     fun resolverForModule(moduleInfo: M): ResolverForModule = resolverForModuleDescriptor(descriptorForModule(moduleInfo))
     abstract fun tryGetResolverForModule(moduleInfo: M): ResolverForModule?
-    abstract fun descriptorForModule(moduleInfo: M): ModuleDescriptor
+    abstract fun descriptorForModule(moduleInfo: M): ModuleDescriptorImpl
     abstract fun moduleInfoForModuleDescriptor(moduleDescriptor: ModuleDescriptor): M
     abstract fun resolverForModuleDescriptor(descriptor: ModuleDescriptor): ResolverForModule
     abstract fun diagnoseUnknownModuleInfo(infos: List<ModuleInfo>): Nothing
+    abstract fun isResolverForModuleDescriptorComputed(descriptor: ModuleDescriptor): Boolean
 
     abstract val name: String
     abstract val allModules: Collection<M>
@@ -74,6 +75,7 @@ class EmptyResolverForProject<M : ModuleInfo> : ResolverForProject<M>() {
     override fun descriptorForModule(moduleInfo: M) = diagnoseUnknownModuleInfo(listOf(moduleInfo))
     override val allModules: Collection<M> = listOf()
     override fun diagnoseUnknownModuleInfo(infos: List<ModuleInfo>) = throw IllegalStateException("Should not be called for $infos")
+    override fun isResolverForModuleDescriptorComputed(descriptor: ModuleDescriptor): Boolean = true
 
     override fun moduleInfoForModuleDescriptor(moduleDescriptor: ModuleDescriptor): M {
         throw IllegalStateException("$moduleDescriptor is not contained in this resolver")
@@ -126,7 +128,7 @@ class LazyModuleDependencies<M : ModuleInfo>(
     storageManager: StorageManager,
     private val module: M,
     firstDependency: M? = null,
-    private val resolverForProject: AbstractResolverForProject<M>
+    private val resolverForProject: ResolverForProject<M>
 ) : ModuleDependencies {
     private val dependencies = storageManager.createLazyValue {
         val moduleDescriptor = resolverForProject.descriptorForModule(module)

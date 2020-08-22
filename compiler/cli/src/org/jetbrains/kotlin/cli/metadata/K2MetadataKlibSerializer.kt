@@ -178,7 +178,7 @@ private class KlibMetadataDependencyContainer(
         it.kotlinLibrary.libraryFile.absolutePath in refinesPaths
     }
 
-    override fun moduleDescriptorForModuleInfo(moduleInfo: ModuleInfo): ModuleDescriptor {
+    override fun moduleDescriptorForModuleInfo(moduleInfo: ModuleInfo): ModuleDescriptorImpl {
         if (moduleInfo !in moduleInfos)
             error("Unknown module info $moduleInfo")
         moduleInfo as KlibModuleInfo

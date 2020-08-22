@@ -47,13 +47,13 @@ fun createResolveSessionForFiles(
         moduleByJavaClass = { testModule }
     )
 
-    val resolverForProject = ResolverForSingleModuleProject(
+    val resolverForProject = EagerResolverForProject.create<TestModule>(
         "test",
         projectContext,
-        testModule,
         JvmResolverForModuleFactory(platformParameters, CompilerEnvironment, JvmPlatforms.defaultJvmPlatform),
-        GlobalSearchScope.allScope(project),
-        syntheticFiles = syntheticFiles
+        moduleInfosToCreateDescriptorsFor = listOf(testModule),
+        constantSearchScope = GlobalSearchScope.allScope(project),
+        constantSynthethicFiles = syntheticFiles
     )
 
     return resolverForProject.resolverForModule(testModule).componentProvider.get<ResolveSession>()
