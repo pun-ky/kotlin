@@ -383,8 +383,7 @@ class TowerResolver {
             return moreSuitableGroup.filter { it.resultingApplicability == groupApplicability }
         }
 
-        private val Collection<C>.groupApplicability
-            get() =
-                minByOrNull { it.resultingApplicability }?.resultingApplicability ?: ResolutionCandidateApplicability.HIDDEN
+        private val Collection<C>.groupApplicability: ResolutionCandidateApplicability
+            get() = minOfOrNull { it.resultingApplicability } ?: ResolutionCandidateApplicability.HIDDEN
     }
 }

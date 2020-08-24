@@ -71,7 +71,8 @@ internal fun createSingleImportAction(
     val prioritizer = Prioritizer(element.containingKtFile)
     val variants = fqNames.mapNotNull { fqName ->
         val sameFqNameDescriptors = file.resolveImportReference(fqName)
-        val priority = sameFqNameDescriptors.map { prioritizer.priority(it, file.languageVersionSettings) }.minOrNull() ?: return@mapNotNull null
+        val priority = sameFqNameDescriptors.minOfOrNull { prioritizer.priority(it, file.languageVersionSettings) }
+            ?: return@mapNotNull null
         Prioritizer.VariantWithPriority(SingleImportVariant(fqName, sameFqNameDescriptors), priority)
     }.sortedBy { it.priority }.map { it.variant }
 
@@ -90,9 +91,8 @@ internal fun createSingleImportActionForConstructor(
         val sameFqNameDescriptors = file.resolveImportReference(fqName.parent())
             .filterIsInstance<ClassDescriptor>()
             .flatMap { it.constructors }
-
-        val priority =
-            sameFqNameDescriptors.asSequence().map { prioritizer.priority(it, file.languageVersionSettings) }.min() ?: return@mapNotNull null
+        val priority = sameFqNameDescriptors.minOfOrNull { prioritizer.priority(it, file.languageVersionSettings) }
+            ?: return@mapNotNull null
         Prioritizer.VariantWithPriority(SingleImportVariant(fqName, sameFqNameDescriptors), priority)
     }.sortedBy { it.priority }.map { it.variant }
     return KotlinAddImportAction(project, editor, element, variants)

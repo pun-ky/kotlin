@@ -397,7 +397,7 @@ class LookupElementFactory(
         val receiverIndex = bestReceiverType!!.receiverIndex
 
         var receiverIndexToUse: Int? = receiverIndex
-        val maxReceiverIndex = receiverTypes.map { it.receiverIndex }.maxOrNull()!!
+        val maxReceiverIndex = receiverTypes.maxOfOrNull { it.receiverIndex }!!
         if (maxReceiverIndex > 0) {
             val matchesAllReceivers = (0..maxReceiverIndex).all { it in matchingReceiverIndices }
             if (matchesAllReceivers) { // if descriptor is matching all receivers then use null as receiverIndex - otherwise e.g. all members of Any would have too high priority

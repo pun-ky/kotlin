@@ -88,7 +88,7 @@ object SuperClassNotInitialized : KotlinIntentionActionsFactory() {
 
                     fun canRenderOnlyFirstParameters(n: Int) = parameterTypes.map { it.take(n) }.toSet().size == parameterTypes.size
 
-                    val maxParams = parameterTypes.asSequence().map { it.size }.maxOrNull()!!
+                    val maxParams = parameterTypes.maxOfOrNull { it.size }!!
                     val maxParamsToDisplay = if (maxParams <= DISPLAY_MAX_PARAMS) {
                         maxParams
                     } else {
