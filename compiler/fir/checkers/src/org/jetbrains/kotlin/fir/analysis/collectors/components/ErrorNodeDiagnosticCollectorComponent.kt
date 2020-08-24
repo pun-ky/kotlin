@@ -75,7 +75,7 @@ class ErrorNodeDiagnosticCollectorComponent(collector: AbstractDiagnosticCollect
             is ConeVariableExpectedError -> FirErrors.VARIABLE_EXPECTED.on(source)
             is ConeTypeMismatchError -> FirErrors.TYPE_MISMATCH.on(source, diagnostic.expectedType, diagnostic.actualType)
             is ConeUnexpectedTypeArgumentsError -> FirErrors.TYPE_ARGUMENTS_NOT_ALLOWED.on(diagnostic.source.safeAs() ?: source)
-            is ConeIllegalAnnotationError -> FirErrors.NOT_AN_ANNOTATION_CLASS.on(source, diagnostic.name.asString())
+            is ConeIllegalAnnotationError -> FirErrors.NOT_AN_ANNOTATION_CLASS.on(source, diagnostic.name.asString(), diagnostic.fir)
             is ConeWrongNumberOfTypeArgumentsError ->
                 FirErrors.WRONG_NUMBER_OF_TYPE_ARGUMENTS.on(source, diagnostic.desiredCount, diagnostic.type)
             is ConeSimpleDiagnostic -> when {

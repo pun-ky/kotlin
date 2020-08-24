@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.resolve.diagnostics
 
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.resolve.calls.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.CandidateApplicability
@@ -68,7 +69,7 @@ class ConeTypeMismatchError(val expectedType: ConeKotlinType, val actualType: Co
 
 class ConeContractDescriptionError(override val reason: String) : ConeDiagnostic()
 
-class ConeIllegalAnnotationError(val name: Name) : ConeDiagnostic() {
+class ConeIllegalAnnotationError(val name: Name, val fir: FirElement) : ConeDiagnostic() {
     override val reason: String get() = "Not a legal annotation: $name"
 }
 

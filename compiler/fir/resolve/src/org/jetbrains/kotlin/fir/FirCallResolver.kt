@@ -379,7 +379,7 @@ class FirCallResolver(
         } else {
             buildErrorReference(
                 callInfo,
-                if (annotationClassSymbol != null) ConeIllegalAnnotationError(reference.name)
+                if (annotationClassSymbol != null) ConeIllegalAnnotationError(reference.name, annotationClassSymbol.fir)
                 else ConeUnresolvedNameError(reference.name),
                 reference.source,
                 reference.name

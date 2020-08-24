@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.analysis.diagnostics
 import org.jetbrains.kotlin.diagnostics.rendering.DefaultErrorMessages
 import org.jetbrains.kotlin.diagnostics.rendering.DiagnosticFactoryToRendererMap
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirDiagnosticRenderers.DECLARATION_NAME
+import org.jetbrains.kotlin.fir.analysis.diagnostics.FirDiagnosticRenderers.FIR
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirDiagnosticRenderers.NULLABLE_STRING
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirDiagnosticRenderers.PROPERTY_NAME
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirDiagnosticRenderers.SYMBOL
@@ -206,7 +207,7 @@ class FirDefaultErrorMessages : DefaultErrorMessages.Extension {
             map.put(NULLABLE_TYPE_OF_ANNOTATION_MEMBER, "An annotation parameter cannot be nullable")
             map.put(INVALID_TYPE_OF_ANNOTATION_MEMBER, "Invalid type of annotation member")
             map.put(VAR_ANNOTATION_PARAMETER, "An annotation parameter cannot be 'var'")
-            map.put(NOT_AN_ANNOTATION_CLASS, "Illegal annotation class: {0}", NULLABLE_STRING)
+            map.put(NOT_AN_ANNOTATION_CLASS, "Illegal annotation class: {0} ({1})", NULLABLE_STRING, FIR)
 
             // Exposed visibility group // #
             map.put(

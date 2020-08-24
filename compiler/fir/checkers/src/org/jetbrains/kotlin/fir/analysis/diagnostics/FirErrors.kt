@@ -10,6 +10,7 @@ import com.intellij.psi.PsiTypeElement
 import org.jetbrains.kotlin.contracts.description.EventOccurrencesRange
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.fir.FirEffectiveVisibility
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
@@ -88,7 +89,7 @@ object FirErrors {
     val NULLABLE_TYPE_OF_ANNOTATION_MEMBER by existing<FirSourceElement, KtTypeReference>(Errors.NULLABLE_TYPE_OF_ANNOTATION_MEMBER)
     val INVALID_TYPE_OF_ANNOTATION_MEMBER by existing<FirSourceElement, KtTypeReference>(Errors.INVALID_TYPE_OF_ANNOTATION_MEMBER)
     val VAR_ANNOTATION_PARAMETER by existing<FirSourceElement, KtParameter>(Errors.VAR_ANNOTATION_PARAMETER)
-    val NOT_AN_ANNOTATION_CLASS by error1<FirSourceElement, PsiElement, String>()
+    val NOT_AN_ANNOTATION_CLASS by error2<FirSourceElement, PsiElement, String, FirElement>()
 
     // Exposed visibility group
     val EXPOSED_TYPEALIAS_EXPANDED_TYPE by error3<FirSourceElement, PsiElement, FirEffectiveVisibility, FirMemberDeclaration, FirEffectiveVisibility>()
