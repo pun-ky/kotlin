@@ -6,6 +6,7 @@ module kotlin.test.testng {
     // won't work with earlier versions, where just 'testng' name was inferred from the artifact name
 
     exports kotlin.test.testng;
+    exports kotlin.test.testng.annotations;
 
     provides kotlin.test.AsserterContributor with kotlin.test.testng.TestNGContributor;
 }
